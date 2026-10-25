@@ -1,0 +1,37 @@
+# Uma Application por arquivo envs/<ambiente>/<componente>.yaml (ADR-0006, seção 4).
+# O Argo lê o overlay do ambiente NO REPOSITÓRIO DO APP, na tag indicada pelo arquivo.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: plat-idplabs-componentes
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/mcavalcanti81/idp-ambientes.git
+        revision: main
+        files:
+          - path: "envs/*/*.yaml"
+  template:
+    metadata:
+      name: "{{ .component }}-{{ index .path.segments 1 }}"
+      labels:
+        plat-idplabs/component: "{{ .component }}"
+        plat-idplabs/environment: "{{ index .path.segments 1 }}"
+    spec:
+      project: default
+      source:
+        repoURL: "https://{{ .repo }}.git"
+        targetRevision: "{{ .tag }}"
+        path: "deploy/{{ .component }}/overlays/{{ index .path.segments 1 }}"
+      destination:
+        name: "{{ .cluster }}"
+        namespace: "{{ .namespace }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
